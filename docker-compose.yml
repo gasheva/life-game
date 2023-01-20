@@ -1,0 +1,6 @@
+version: "3.4"
+services:
+  life-game:
+    build: ./client   # Dockerfile location
+    ports:
+      - "5173:5173"
