@@ -1,5 +1,8 @@
 <template>
     <div>
+        <button @click="reset">RESET</button>
+        <button @click="play">START</button>
+        <button @click="">STOP</button>
         <canvas
                 id="canvas"
                 :height="canvasHeightPx"
@@ -18,9 +21,9 @@ export default {
 </script>
 <script setup>
 
-import {computed, onMounted, ref} from 'vue';
+import {computed, onMounted} from 'vue';
 
-const CELL_SIZE_PX = 10;
+const CELL_SIZE_PX = 30;
 const props = defineProps({
     widthCellsNumber: {
         type: Number,
@@ -41,16 +44,26 @@ const props = defineProps({
     borderColour: {
         type: String,
         default: '#000000'
+    },
+    timeOfGenerationInMs: {
+        type: Number,
+        default: 1000,
     }
 });
 
+const CellStates = {
+    DEAD: 0,
+    ALIVE: 1,
+};
+
 const emit = defineEmits(['onClick']);
 
-const matrix = ref(
-    new Array(props.heightCellsNumber).fill(
-        new Array(props.widthCellsNumber)
-    )
-);
+const matrix =
+    new Array(props.heightCellsNumber).fill().map(_ =>
+        new Array(props.widthCellsNumber).fill(CellStates.DEAD)
+    );
+let playing = false;
+
 
 const canvasHeightPx = computed(() => {
     return props.heightCellsNumber * CELL_SIZE_PX;
@@ -60,11 +73,23 @@ const canvasWidthPx = computed(() => {
     return props.widthCellsNumber * CELL_SIZE_PX;
 });
 
-const onClick = () => {
+const onClick = (e) => {
+    if (playing) return;
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const [topLeftX, topLeftY] = getCellLeftTopCoords(e.offsetX, e.offsetY);
+    drawCell(ctx, topLeftX, topLeftY, props.liveCellsColour);
+    const [numberX, numberY] = getCellByCoord(topLeftX, topLeftY);
+    matrix[numberY][numberX] = CellStates.ALIVE;
+};
+
+const getCellLeftTopCoords = (x, y) => {
+    const [numberX, numberY] = getCellByCoord(x, y);
+    return [CELL_SIZE_PX * numberX, CELL_SIZE_PX * numberY];
 };
 
 const getCellByCoord = (x, y) => {
-    return [Math.ceil( x/CELL_SIZE_PX), Math.ceil(y/CELL_SIZE_PX)];
+    return [Math.floor(x / CELL_SIZE_PX), Math.floor(y / CELL_SIZE_PX)];
 };
 
 const getCellState = (prevState = matrix, x, y) => {
@@ -85,9 +110,9 @@ const getCellState = (prevState = matrix, x, y) => {
 
     const neighboursCount = getNeighboursCount(prevState, x, y);
     if (neighboursCount === 2 || neighboursCount === 3) {
-        return 1;
+        return CellStates.ALIVE;
     }
-    return 0;
+    return CellStates.DEAD;
 };
 
 function draw() {
@@ -96,7 +121,7 @@ function draw() {
         const ctx = canvas.getContext('2d');
         for (let i = 0; i < canvasHeightPx.value; i += CELL_SIZE_PX) {
             for (let j = 0; j < canvasWidthPx.value; j += CELL_SIZE_PX) {
-                matrix[i][j] = getCellState(matrix.value, j, i);
+                matrix[i][j] = getCellState(matrix, j, i);
                 drawCell(ctx, j, i);
             }
         }
@@ -112,24 +137,47 @@ function reset() {
         for (let j = 0; j < canvasWidthPx.value; j += CELL_SIZE_PX) {
             // matrix.value[i][j] = 0;
             const [x, y] = getCellByCoord(j, i);
-            matrix.value[y][x] = 0;
+            matrix[y][x] = 0;
             drawCell(ctx, j, i);
         }
     }
 }
 
 // 1 px is for border => size - 2
-function drawCell(ctx, x = 0, y = 0, backgroundColour = props.deadCellsColour, borderColour = props.borderColour, width = CELL_SIZE_PX, height = CELL_SIZE_PX,) {
+function drawCell(ctx, leftTopX = 0, leftTopY = 0, backgroundColour = props.deadCellsColour, borderColour = props.borderColour, width = CELL_SIZE_PX, height = CELL_SIZE_PX,) {
     ctx.fillStyle = backgroundColour;
-    ctx.fillRect(x, y, width, height);
+    ctx.fillRect(leftTopX, leftTopY, width, height);
     ctx.strokeStyle = borderColour;
     ctx.lineWidth = 1;
-    ctx.strokeRect(x, y, width, height);
+    ctx.strokeRect(leftTopX, leftTopY, width, height);
 }
 
 onMounted(() => {
     reset();
 });
+
+
+/* GAME */
+
+let aliveCellsCounter = 0;
+
+const countAliveCells = () => {
+    matrix.forEach(ar => {
+        ar.forEach(cell => cell === CellStates.ALIVE && aliveCellsCounter++);
+    });
+};
+
+const hasAliveCells = () => {
+
+};
+
+const play = () => {
+    playing = true;
+    while (playing) {
+
+    }
+};
+
 </script>
 
 <style scoped>
