@@ -3,6 +3,7 @@
         <button @click="reset">RESET</button>
         <button @click="play">START</button>
         <button @click="stop">STOP</button>
+        Generation: {{ generation }}
         <canvas
                 id="canvas"
                 :height="canvasHeightPx"
@@ -21,7 +22,7 @@ export default {
 </script>
 <script setup>
 
-import {computed, onMounted} from 'vue';
+import {computed, onMounted, ref} from 'vue';
 
 const CELL_SIZE_PX = 30;
 const props = defineProps({
@@ -111,6 +112,7 @@ function draw() {
 }
 
 function reset() {
+    generation.value = 0;
     const canvas = document.getElementById('canvas');
     if (!canvas.getContext) return;
     const ctx = canvas.getContext('2d');
@@ -138,6 +140,8 @@ onMounted(() => {
 
 
 /* GAME */
+
+let generation = ref(0);
 
 let aliveCellsCounter = 0;
 
@@ -183,7 +187,7 @@ const stop = () => {
 const play = async () => {
     countAliveCells();
     playing = true;
-    while (playing && aliveCellsCounter) {
+    while (playing && aliveCellsCounter>0) {
         const wait = async () => {
             let timerNumber = null;
             const timer = new Promise((resolve) => {
@@ -195,6 +199,7 @@ const play = async () => {
         await wait();
 
         if (playing) {
+            generation.value++;
             matrix = calculateNextStep();
             draw();
         }
@@ -211,7 +216,7 @@ const calculateNextStep = () => {
 
             const updateCounter = () => {
                 if (matrix[i][j] !== cellState) {
-                    aliveCellsCounter += (cellState.DEAD ? -1 : 1);
+                    aliveCellsCounter += (cellState === CellStates.DEAD ? -1 : 1);
                 }
             };
 
