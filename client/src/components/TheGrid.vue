@@ -104,7 +104,7 @@ function draw() {
         for (let i = 0; i < canvasHeightPx.value; i += CELL_SIZE_PX) {
             for (let j = 0; j < canvasWidthPx.value; j += CELL_SIZE_PX) {
                 const [x, y] = getCellByCoord(j, i);
-                drawCell(ctx, j, i, matrix[x][y] === CellStates.ALIVE ? props.liveCellsColour : props.deadCellsColour);
+                drawCell(ctx, i, j, matrix[x][y] === CellStates.ALIVE ? props.liveCellsColour : props.deadCellsColour);
             }
         }
 
@@ -113,6 +113,7 @@ function draw() {
 
 function reset() {
     generation.value = 0;
+    playing = false;
     const canvas = document.getElementById('canvas');
     if (!canvas.getContext) return;
     const ctx = canvas.getContext('2d');
@@ -152,14 +153,21 @@ const countAliveCells = () => {
 };
 
 
-const rules = (neighboursCount) => {
-    if (neighboursCount === 2) {
+const rules = (neighboursCount, cellState) => {
+    if (cellState === CellStates.DEAD) {
+        if (neighboursCount === 3) {
+            return CellStates.ALIVE;
+        }
+        return CellStates.DEAD;
+    }
+
+    if (neighboursCount === 2 || neighboursCount === 3) {
         return CellStates.ALIVE;
     }
     return CellStates.DEAD;
 };
 
-const getCellNextState = (prevState = matrix, i, j, _rules = rules) => {
+const getCellNextState = (prevState = matrix, i, j) => {
     const getNeighboursCount = (_state, _i, _j) => {
         let res = 0;
         res += _i === 0 ? 0 : _state[_i - 1][_j]; // left
@@ -176,7 +184,7 @@ const getCellNextState = (prevState = matrix, i, j, _rules = rules) => {
     };
 
     const neighboursCount = getNeighboursCount(prevState, i, j);
-    return _rules(neighboursCount);
+    return rules(neighboursCount, matrix[i][j]);
 };
 
 
@@ -187,7 +195,7 @@ const stop = () => {
 const play = async () => {
     countAliveCells();
     playing = true;
-    while (playing && aliveCellsCounter>0) {
+    while (playing && aliveCellsCounter > 0) {
         const wait = async () => {
             let timerNumber = null;
             const timer = new Promise((resolve) => {
