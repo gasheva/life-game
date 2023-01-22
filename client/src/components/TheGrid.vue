@@ -2,7 +2,7 @@
     <div>
         <button @click="reset">RESET</button>
         <button @click="play">START</button>
-        <button @click="">STOP</button>
+        <button @click="stop">STOP</button>
         <canvas
                 id="canvas"
                 :height="canvasHeightPx"
@@ -58,10 +58,14 @@ const CellStates = {
 
 const emit = defineEmits(['onClick']);
 
-const matrix =
-    new Array(props.heightCellsNumber).fill().map(_ =>
+const createMatrix = () => {
+    return new Array(props.heightCellsNumber).fill().map(_ =>
         new Array(props.widthCellsNumber).fill(CellStates.DEAD)
     );
+};
+
+let matrix = createMatrix();
+
 let playing = false;
 
 
@@ -78,9 +82,9 @@ const onClick = (e) => {
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const [topLeftX, topLeftY] = getCellLeftTopCoords(e.offsetX, e.offsetY);
-    drawCell(ctx, topLeftX, topLeftY, props.liveCellsColour);
     const [numberX, numberY] = getCellByCoord(topLeftX, topLeftY);
-    matrix[numberY][numberX] = CellStates.ALIVE;
+    matrix[numberY][numberX] = matrix[numberY][numberX] === CellStates.DEAD ? CellStates.ALIVE : CellStates.DEAD;
+    drawCell(ctx, topLeftX, topLeftY, matrix[numberY][numberX] === CellStates.DEAD ? props.deadCellsColour : props.liveCellsColour);
 };
 
 const getCellLeftTopCoords = (x, y) => {
@@ -92,37 +96,14 @@ const getCellByCoord = (x, y) => {
     return [Math.floor(x / CELL_SIZE_PX), Math.floor(y / CELL_SIZE_PX)];
 };
 
-const getCellState = (prevState = matrix, x, y) => {
-    const getNeighboursCount = (_state, _x, _y) => {
-        let res = 0;
-        res += _x === 0 ? 0 : _state[_x - 1][_y]; // left
-        res += _y === 0 ? 0 : _state[_x][_y - 1]; // top
-        res += (_x === _state[0].length - 1) ? 0 : _state[_x + 1][_y]; // right
-        res += (_y === _state.length - 1) ? 0 : _state[_x][_y + 1]; // bottom
-
-        res += (_x === 0 || _y === 0) ? 0 : _state[_x - 1][_y - 1]; // left-top
-        res += (_x === 0 || _y === _state.length - 1) ? 0 : _state[_x - 1][_y + 1]; // left-bottom
-        res += (_x === _state[0].length - 1 || _y === 0) ? 0 : _state[_x + 1][_y - 1]; // right-top
-        res += (_x === _state[0].length - 1 || _y === _state.length - 1) ? 0 : _state[_x + 1][_y + 1]; // right-bottom
-
-        return res;
-    };
-
-    const neighboursCount = getNeighboursCount(prevState, x, y);
-    if (neighboursCount === 2 || neighboursCount === 3) {
-        return CellStates.ALIVE;
-    }
-    return CellStates.DEAD;
-};
-
 function draw() {
     const canvas = document.getElementById('canvas');
     if (canvas.getContext) {
         const ctx = canvas.getContext('2d');
         for (let i = 0; i < canvasHeightPx.value; i += CELL_SIZE_PX) {
             for (let j = 0; j < canvasWidthPx.value; j += CELL_SIZE_PX) {
-                matrix[i][j] = getCellState(matrix, j, i);
-                drawCell(ctx, j, i);
+                const [x, y] = getCellByCoord(j, i);
+                drawCell(ctx, j, i, matrix[x][y] === CellStates.ALIVE ? props.liveCellsColour : props.deadCellsColour);
             }
         }
 
@@ -135,7 +116,6 @@ function reset() {
     const ctx = canvas.getContext('2d');
     for (let i = 0; i < canvasHeightPx.value; i += CELL_SIZE_PX) {
         for (let j = 0; j < canvasWidthPx.value; j += CELL_SIZE_PX) {
-            // matrix.value[i][j] = 0;
             const [x, y] = getCellByCoord(j, i);
             matrix[y][x] = 0;
             drawCell(ctx, j, i);
@@ -167,15 +147,79 @@ const countAliveCells = () => {
     });
 };
 
-const hasAliveCells = () => {
 
+const rules = (neighboursCount) => {
+    if (neighboursCount === 2) {
+        return CellStates.ALIVE;
+    }
+    return CellStates.DEAD;
 };
 
-const play = () => {
-    playing = true;
-    while (playing) {
+const getCellNextState = (prevState = matrix, i, j, _rules = rules) => {
+    const getNeighboursCount = (_state, _i, _j) => {
+        let res = 0;
+        res += _i === 0 ? 0 : _state[_i - 1][_j]; // left
+        res += _j === 0 ? 0 : _state[_i][_j - 1]; // top
+        res += (_i === _state[0].length - 1) ? 0 : _state[_i + 1][_j]; // right
+        res += (_j === _state.length - 1) ? 0 : _state[_i][_j + 1]; // bottom
 
+        res += (_i === 0 || _j === 0) ? 0 : _state[_i - 1][_j - 1]; // left-top
+        res += (_i === 0 || _j === _state.length - 1) ? 0 : _state[_i - 1][_j + 1]; // left-bottom
+        res += (_i === _state[0].length - 1 || _j === 0) ? 0 : _state[_i + 1][_j - 1]; // right-top
+        res += (_i === _state[0].length - 1 || _j === _state.length - 1) ? 0 : _state[_i + 1][_j + 1]; // right-bottom
+
+        return res;
+    };
+
+    const neighboursCount = getNeighboursCount(prevState, i, j);
+    return _rules(neighboursCount);
+};
+
+
+const stop = () => {
+    playing = false;
+};
+
+const play = async () => {
+    countAliveCells();
+    playing = true;
+    while (playing && aliveCellsCounter) {
+        const wait = async () => {
+            let timerNumber = null;
+            const timer = new Promise((resolve) => {
+                timerNumber = setTimeout(() => resolve(), props.timeOfGenerationInMs);
+            });
+            await timer;
+            timerNumber && clearTimeout(timerNumber);
+        };
+        await wait();
+
+        if (playing) {
+            matrix = calculateNextStep();
+            draw();
+        }
     }
+};
+
+const calculateNextStep = () => {
+    const newMatrix = createMatrix();
+
+    for (let i = 0; i < matrix.length; i++) {
+        for (let j = 0; j < matrix[0].length; j++) {
+            const cellState = getCellNextState(matrix, i, j);
+            newMatrix[i][j] = cellState;
+
+            const updateCounter = () => {
+                if (matrix[i][j] !== cellState) {
+                    aliveCellsCounter += (cellState.DEAD ? -1 : 1);
+                }
+            };
+
+            updateCounter();
+        }
+    }
+
+    return newMatrix;
 };
 
 </script>
