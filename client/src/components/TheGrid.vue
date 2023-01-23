@@ -1,8 +1,5 @@
 <template>
     <div>
-        <button @click="reset">RESET</button>
-        <button @click="play">START</button>
-        <button @click="stop">STOP</button>
         Generation: {{ generation }}
         <canvas
                 id="canvas"
@@ -235,6 +232,7 @@ const calculateNextStep = () => {
     return newMatrix;
 };
 
+defineExpose({reset, play, stop})
 </script>
 
 <style scoped>

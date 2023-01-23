@@ -1,11 +1,21 @@
 <template>
     <main>
-        <TheGrid/>
+        <button @click="reset">RESET</button>
+        <button @click="play">START</button>
+        <button @click="stop">STOP</button>
+        <TheGrid ref="theGrid"/>
     </main>
 </template>
 
 <script setup>
 import TheGrid from '@/components/TheGrid.vue';
+import {ref} from 'vue';
+
+const theGrid = ref();
+
+const reset = () => theGrid.value.reset();
+const play = () => theGrid.value.play();
+const stop = () => theGrid.value.stop();
 </script>
 
 
